@@ -1,0 +1,10 @@
+name = Mail alias
+description = Creates 2 fields in user profile form, that is used to forward mails
+core = 7.x
+package = Other
+php = 5.2.4
+dependencies[] = email
+dependencies[] = features
+features[features_api][] = api:1
+features[field][] = user-user-field_local_mail
+features[field][] = user-user-field_mail_alias

@@ -1,0 +1,3 @@
+name = Mensa - User View/Edit
+description = Creates seperate pages for viewing and editing user acounts and profiles
+core = 7.x

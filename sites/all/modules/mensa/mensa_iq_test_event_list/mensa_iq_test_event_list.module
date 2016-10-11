@@ -1,0 +1,129 @@
+<?php
+
+
+function mensa_iq_test_event_list_menu() {
+
+
+  $items['test/test'] = array(
+    'title' => 'Finances',
+    'page callback' => 'mymodule_page',
+    'menu_name'       => 'main-menu',
+    'access callback' => 'user_access',
+    'access argument' => array('access nodes'),
+    
+  );
+  return $items;
+}
+
+
+function mymodule_page() {
+
+
+	$content['raw_markup'] = array(
+    '#type' => 'markup',
+    '#markup' => '<p>Hello world</p>',
+  );
+ 
+ 
+  
+	$uid = $GLOBALS['user']->uid;
+	$result = db_query('SELECT product_id, uid, sku
+	FROM {commerce_product}
+	WHERE uid = :uid', array(':uid' => $uid));
+	// Result is returned as a iterable object that returns a stdClass object on each iteration
+	
+	print ('<div class="row">');
+	
+	
+	foreach ($result as $record) {
+		
+		$sku = $record->sku;
+		$product_id = $record->product_id;
+		$product = commerce_product_load($product_id);
+		$wrapper = entity_metadata_wrapper('commerce_product', $product);
+		
+		$result2 = db_query('SELECT li.line_item_id, li.line_item_label, li.order_id, ord.order_id, ord.mail
+		FROM {commerce_line_item} li
+		LEFT JOIN {commerce_order} ord on ord.order_id = li.order_id
+		WHERE li.line_item_label = :liID', array(':liID' => $sku));
+		
+		
+		
+		
+		//Print event details
+		print t('<h2>'. $wrapper->title->value()); 
+		
+		foreach ($wrapper->field_location->getIterator() as $delta => $term_wrapper) {
+		
+			
+			print t($term_wrapper->label());
+		}
+		
+		$fields = field_get_items('commerce_product', $product, 'field_date');
+		$index = 0;
+		$output = field_view_value('commerce_product', $product, 'field_date', $fields[$index]);
+		
+		//Print rendered date
+		print render($output);
+
+
+		print t('</h2>');
+		
+		
+		
+		//Print order information
+		
+		
+	
+		foreach ($result2 as $order_id){
+			
+			$orderID = $order_id->order_id;
+			$order = commerce_order_load_multiple(array($orderID), array());
+			$order_wrapper = entity_metadata_wrapper('commerce_order', $orderID);
+			$order_info = $order_wrapper;
+			
+			$result3 = db_query('SELECT entity_id, commerce_customer_billing_profile_id
+			FROM {field_data_commerce_customer_billing} 
+			WHERE entity_id = :ordId', array(':ordId' => $orderID));
+			
+			
+			foreach ($result3 as $record) {
+				//print_r($record);
+				$profileID = $record->commerce_customer_billing_profile_id;
+				$profile_wrapper = entity_metadata_wrapper('commerce_order', $profileID);
+				
+				//print_r($profile_wrapper->field_first_name);
+				//print $profile_wrapper->field_first_name->value();
+			}
+			
+			//print $profile_wrapper->field_first_name->value();
+			
+			print_r($profile_wrapper);
+			//Format output
+			//$first_name = field_view_value('commerce_order', $orderID, 'field_first_name', $fields[$index]);
+			
+			print ('<div class="row clearfix">');
+			
+			print ('<div class="col-sm-2">'. $order_id->mail .'</div>');
+			//mb_convert_encoding($text, "UTF-8");
+			//print ('<div class="col-sm-4"> Name: '. mb_convert_encoding($order_info->field_first_name->value(), "UTF-8") .' '. $order_info->field_last_name->value().'</div>');
+			//print ('<div class="col-sm-4"> Name: '. $order_info->field_first_name->value() .' '. $order_info->field_last_name->value().'</div>');
+			//print ('<div class="col-sm-4"> Phone: '. $order_info->field_phone->value() .'</div>');
+			//print ('<div class="col-sm-2"> <a href="/admin/commerce/orders/'. $orderID .'/edit" class="btn btn-primary"><span class="glyphicon glyphicon-edit"></span> Edit</a></div>');
+			
+			
+			print ('</div>');
+				
+		}
+		
+		
+	
+	
+	
+	}
+	print ('</div>');
+	
+	 return $content;
+}
+
+?>

@@ -1,0 +1,12 @@
+name = VAT Product field
+description = Adds a VAT rate reference field to all product types.
+package = Commerce (Tax)
+dependencies[] = commerce_vat
+dependencies[] = commerce_vat_reference
+core = 7.x
+; Information added by drupal.org packaging script on 2013-07-12
+version = "7.x-1.0-rc1"
+core = "7.x"
+project = "commerce_vat"
+datestamp = "1373633486"
+

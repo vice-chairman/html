@@ -1,0 +1,77 @@
+@media print {
+  a[href]:after {
+    content: none !important;
+  }
+  
+  #administration-menu, #mensa-menu, #calendar_sort, #region_filter input, .date-nav .pager, .views-exposed-widget, .footer, #cometchat, .edit{
+	  display: none;
+  }
+  
+  .date-heading{
+	  position: relative;
+	  margin-top: 40px;
+  }
+  .main-container{
+	  max-width: 200mm;
+	  margin: 0;
+	  -webkit-print-color-adjust: exact;
+  }
+  
+  .stripe{
+	  -webkit-print-color-adjust: exact;
+  }
+  
+  div[title~="landet"], ._85{
+  	background-color: #666 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Bornholm"], ._36{
+  	background-color: #f1757a !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Fyn"], ._34{
+  	background-color: #f5bc3e !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="København"], ._28{
+  	background-color: #ede641 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Midtjylland"], ._32{
+  	background-color: #b2e039 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Nordjylland"], ._29{
+  	background-color: #2AF1BF !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Nordsjælland"], ._37{
+  	background-color: #89c1f5 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Sydjylland"], ._33{
+  	background-color: #df96fc !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="Sydsjælland"], ._35{
+  	background-color: #c3c3c3 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  div[title~="verden"], ._148{
+  	background-color: #f9f9f9 !important;
+	 -webkit-print-color-adjust: exact; 
+  }
+  
+  
+
+}
+

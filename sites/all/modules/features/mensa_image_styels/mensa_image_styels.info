@@ -1,0 +1,11 @@
+name = Mensa - Image styels
+description = Required image styles for Mensa site
+core = 7.x
+package = Mensa
+version = 7.x-1.0
+project = mensa_image_styels
+dependencies[] = image
+features[features_api][] = api:1
+features[image][] = forum_mentum_cover
+features[image][] = md_slider_1_thumb
+features[image][] = photo_gallery

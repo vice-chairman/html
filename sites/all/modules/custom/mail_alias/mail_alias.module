@@ -1,0 +1,37 @@
+<?php
+/**
+ * @file
+ * Module that adds a new field validator to the user profile page, where user can
+ * enter the wanted mail alias to forward their e-mails to.
+*/
+
+/**
+ * Implements hook_FORM_ID_alter().
+ *
+ * This function adds the local mail field validator to the user profile form.
+ */
+function mail_alias_form_user_profile_form_alter(&$form, $form_state, $form_id) {
+  $form['#validate'][] = 'mail_alias_user_profile_form_validate';
+}
+
+/**
+ * The validation for the user profile form.
+ *
+ * The alias field is unique, so we need to make sure some else does not "own" the alias.
+ * We also check that this is indeed a valid email address and that the Mail alias field is not empty.
+ */
+function mail_alias_user_profile_form_validate($form, &$form_state) {
+  if (isset($form_state['values']['field_local_mail'][LANGUAGE_NONE][0]['value']) && $form_state['values']['field_local_mail'][LANGUAGE_NONE][0]['value'] !== '') {
+    if (!preg_match('/^[A-Z0-9._%+-]+$/i', $form_state['values']['field_local_mail'][LANGUAGE_NONE][0]['value'])) {
+      form_set_error('field_local_mail', 'Not a valid email address. Remember only to type the first part. NOT the @ and everything after it.');
+    }
+    $result = db_query('SELECT * FROM {field_data_field_local_mail} lm WHERE deleted = 0 AND lm.entity_id != :uid AND lm.field_local_mail_value = :alias', array(':uid' => $form['#user']->uid, ':alias' => $form_state['values']['field_local_mail'][LANGUAGE_NONE][0]['value']));
+    $mailman_result = db_query('SELECT * FROM {mailman_lists} ml WHERE command = :alias', array(':alias' => $form_state['values']['field_local_mail'][LANGUAGE_NONE][0]['value'] . '-request@' . (substr($_SERVER['SERVER_NAME'], 0, 4) == 0 ? $_SERVER['SERVER_NAME'] : substr($_SERVER['SERVER_NAME'], 4))));
+    if ($result->rowCount() > 0 || $mailman_result->rowCount() > 0) {
+      form_set_error('field_local_mail', 'The local mail chosen is already in use.');
+    }
+    if (!isset($form_state['values']['field_mail_alias'][LANGUAGE_NONE][0]['email']) || $form_state['values']['field_mail_alias'][LANGUAGE_NONE][0]['email'] === '') {
+      form_set_error('field_local_mail', 'The Mail alias field cannot be empty if you enter something into the Local mail field. Both fields needs to have valid entries');
+    }
+  }
+}

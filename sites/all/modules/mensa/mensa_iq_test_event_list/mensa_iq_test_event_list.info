@@ -1,0 +1,3 @@
+name = Mensa - IQ Test Events list
+description = Shows a lsit of all events created by the logged in user and all order related to the event
+core = 7.x

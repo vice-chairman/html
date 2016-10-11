@@ -1,0 +1,351 @@
+<?php
+
+/**
+ * Create fieldgroup and corosponding fields for new term. One field for personal mail and one for mail alias
+ */
+
+function mensa_mail_alias_taxonomy_term_insert($term) {
+		
+		if ( $term->vid == 9){
+			
+			$tid = $term->tid;
+			$label = $term->name;
+			
+			$field_name_mail = 'personal_mail_' . $tid;
+			$field_name_alias = 'mail_alias_' . $tid;
+			$group_name = 'group_' . $tid;
+			$group_label = $label;
+			
+			//Remember to check if fields allready exists (hook_field_info (?))
+			
+			/**
+			 * Create personal mail field so user can set recipient mail for mail alias adresses
+			 */
+			
+			$field = array(
+		    	'field_name' => $field_name_mail,
+				'type' => 'email',
+			);
+			field_create_field($field);
+		
+			/**
+			 * Bind field to a entity bundle.
+			 */
+			$instance = array(
+		    	'field_name' => $field['field_name'],
+				'entity_type' => 'user',
+				'bundle' => 'user',
+				'label' => t('Your mail'),
+				'description' => t('The email address that mails are forwarded to. This is your personal email address, i.e. example@gmail.com. - If you leave this field blank your account email will be used instead'),
+			);
+			field_create_instance($instance);
+			
+			/**
+			 * Create mail alias field so user can set mail alias adresses
+			 */
+					
+			$field = array(
+		    	'field_name' => $field_name_alias,
+				'type' => 'text',
+			);
+			field_create_field($field);
+		
+			/**
+			 * Bind field to a entity bundle.
+			 */
+			$instance = array(
+		    	'field_name' => $field['field_name'],
+				'entity_type' => 'user',
+				'bundle' => 'user',
+				'label' => t('Mail alias'),
+				'description' => t('Enter the email you would like to have on this site. Please only enter the part before the @. The system will add the rest.'),
+			);
+			field_create_instance($instance);
+			
+			$entity_type = 'user';
+			$bundle = 'user';
+			$mode = 'form';
+			if (!field_group_exists($group_name, $entity_type, $bundle, $mode)) {
+			$group = (object) array(
+			  'identifier' => $group_name .'|'. $entity_type .'|'. $bundle .'|'. $mode,
+			  'group_name' => $group_name,
+			  'entity_type' => $entity_type,
+			  'bundle' => $bundle,
+			  'mode' => $mode,
+			  'label' => $group_label,
+			  'weight' => '40',
+			  'children' => array(
+			    $field_name_mail,
+			    $field_name_alias,
+			  ),
+			  'format_type' => 'div',
+			  'format_settings' => array(
+			    'formatter' => 'open',
+			    'instance_settings' => array(
+			    	'show_label' => 1,
+			      'description' => '',
+			      'classes' => '',
+			      'required_fields' => 1,
+			    ),
+			  ),
+			);
+			field_group_group_save($group);
+			ctools_include('export');
+			ctools_export_crud_enable('field_group', $group->identifier);
+			}
+		}
+	
+}
+
+
+function mensa_mail_alias_taxonomy_term_delete($term) {
+	
+	if ( $term->vid == 9){
+		$tid = $term->tid;
+				
+		$field_name_mail = 'personal_mail_' . $tid;
+		$field_name_alias = 'mail_alias_' . $tid;
+		$group_name = 'group_' . $tid;
+		
+		$instance = array(
+		    'field_name' => $field_name_mail,
+		    'entity_type' => 'user',
+		    'bundle' => 'user',
+		  );
+		  field_delete_instance($instance);
+		  field_delete_field($instance['field_name']);
+		  
+		$instance = array(
+		    'field_name' => $field_name_alias,
+		    'entity_type' => 'user',
+		    'bundle' => 'user',
+		  );
+		  field_delete_instance($instance);
+		  field_delete_field($instance['field_name']);
+		
+		$entity_type = 'user';
+		$bundle = 'user';
+		$mode = 'form';  
+		if ($group = field_group_load_field_group($group_name, $entity_type, $bundle, $mode)) {
+		ctools_include('export');
+		field_group_group_export_delete($group, FALSE);
+		}
+	}
+
+}
+
+function mensa_mail_alias_taxonomy_term_update($term) {
+	
+	if ( $term->vid == 9){
+		$tid = $term->tid;
+		$label = $term->name;
+		
+		$field_name_mail = 'personal_mail_' . $tid;
+		$field_name_alias = 'mail_alias_' . $tid;
+		$group_name = 'group_' . $tid;
+		$group_label = $label;
+	
+	
+		$entity_type = 'user';
+		$bundle = 'user';
+		$mode = 'form';  
+		
+		if ($group = field_group_load_field_group($group_name, $entity_type, $bundle, $mode)) {
+		ctools_include('export');
+		field_group_group_export_delete($group, FALSE);
+		}
+		
+		
+		$group = (object) array(
+		  'identifier' => $group_name .'|'. $entity_type .'|'. $bundle .'|'. $mode,
+		  'group_name' => $group_name,
+		  'entity_type' => $entity_type,
+		  'bundle' => $bundle,
+		  'mode' => $mode,
+		  'label' => $group_label,
+		  'weight' => '40',
+		  'children' => array(
+		    $field_name_mail,
+		    $field_name_alias,
+		  ),
+		  'format_type' => 'div',
+		  'format_settings' => array(
+		    'formatter' => 'open',
+		    'instance_settings' => array(
+		    	'show_label' => 1,
+		      'description' => '',
+		      'classes' => '',
+		      'required_fields' => 1,
+		    ),
+		  ),
+		);
+		field_group_group_save($group);
+		ctools_include('export');
+		ctools_export_crud_enable('field_group', $group->identifier);
+	}
+	
+
+}
+
+
+
+
+
+
+
+
+
+
+/* function mensa_mail_alias_enable() { */
+	
+function mensa_mail_alias_menu() {
+  $items = array();
+  $items['mensa_mail_alias/batch_fix'] = array(
+    'title' => 'Batch fix',
+    'page callback' => 'mensa_mail_alias_test',
+    'access arguments' => array('administer users'),
+  );
+  return $items;
+}	
+
+function mensa_mail_alias_test(){
+	
+	$batch = array(
+	'operations' => array(),
+	'finished' => 'mensa_mail_alias_batch_fix_finished',
+	'title' => t('Batch fix'),
+	'init_message' => t('Fix is starting...'),
+	'progress_message' => t('Processed @current out of @total.'),
+	'error_message' => t('Fix has encountered an error.')
+	);
+	
+	
+
+	// vid is hardcoded - should be configurable in the future
+	$vid = 9;
+	$result = db_query('SELECT tid, vid, name
+						FROM {taxonomy_term_data}
+						WHERE vid = :vid', array(':vid' => $vid));
+	
+	
+	foreach ($result as $record) {
+		$field_name_mail = 'personal_mail_' . $record->tid;
+		$field_name_alias = 'mail_alias_' . $record->tid;
+		$group_name = 'group_' . $record->tid;
+		$group_label = $record->name;
+		
+		$batch['operations'][] = array('mensa_mail_alias_my_batch', array($field_name_mail, $field_name_alias, $group_name, $group_label));
+  
+  
+	}
+	
+	batch_set($batch);
+	batch_process('admin/modules'); // The path to redirect to when done.
+}
+/* } */
+
+
+function mensa_mail_alias_my_batch($field_name_mail, $field_name_alias, $group_name, $group_label, $word, &$context){
+	
+	
+		
+		//Remember to check if fields allready exists (hook_field_info (?))
+		
+		
+		
+		
+		/**
+		 * Create personal mail field so user can set recipient mail for mail alias adresses
+		 */
+		
+		$field = array(
+	    	'field_name' => $field_name_mail,
+			'type' => 'email',
+		);
+		field_create_field($field);
+	
+		/**
+		 * Bind field to a entity bundle.
+		 */
+		$instance = array(
+	    	'field_name' => $field['field_name'],
+			'entity_type' => 'user',
+			'bundle' => 'user',
+			'label' => t('Your mail'),
+			'description' => t('The email address that mails are forwarded to. This is your personal email address, i.e. example@gmail.com. - If you leave this field blank your account email vil be used instead'),
+		);
+		field_create_instance($instance);
+		
+		/**
+		 * Create mail alias field so user can set mail alias adresses
+		 */
+				
+		$field = array(
+	    	'field_name' => $field_name_alias,
+			'type' => 'text',
+		);
+		field_create_field($field);
+	
+		/**
+		 * Bind field to a entity bundle.
+		 */
+		$instance = array(
+	    	'field_name' => $field['field_name'],
+			'entity_type' => 'user',
+			'bundle' => 'user',
+			'label' => t('Mail alias'),
+			'description' => t('Enter the email you would like to have on this site. Please only enter the part before the @. The system will add the rest.'),
+		);
+		field_create_instance($instance);
+		
+		
+		
+		$entity_type = 'user';
+		$bundle = 'user';
+		$mode = 'form';
+		if (!field_group_exists($group_name, $entity_type, $bundle, $mode)) {
+			$group = (object) array(
+			  'identifier' => $group_name .'|'. $entity_type .'|'. $bundle .'|'. $mode,
+			  'group_name' => $group_name,
+			  'entity_type' => $entity_type,
+			  'bundle' => $bundle,
+			  'mode' => $mode,
+			  'label' => $group_label,
+			  'weight' => '40',
+			  'children' => array(
+			    $field_name_mail,
+			    $field_name_alias,
+			  ),
+			  'format_type' => 'div',
+			  'format_settings' => array(
+			    'formatter' => 'open',
+			    'instance_settings' => array(
+			    	'show_label' => 1,
+			      'description' => '',
+			      'classes' => '',
+			      'required_fields' => 1,
+			    ),
+			  ),
+			);
+			field_group_group_save($group);
+			ctools_include('export');
+			ctools_export_crud_enable('field_group', $group->identifier);
+		}
+		
+		 $context['message'] = "Now processing $word...";
+}
+
+function mensa_mail_alias_batch_fix_finished($success, $result, $operations) {
+  if ($success) {
+    drupal_set_message('The fields were successfully created');
+  }
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %error_operation with arguments: @arguments', array(
+      '%error_operation' => $error_operation[0],
+      '@arguments' => print_r($error_operation[1], TRUE)
+    ));
+    drupal_set_message($message, 'error');
+  }
+  drupal_set_message(l('Run again', 'mensa_mail_alias/batch_fix'));
+}

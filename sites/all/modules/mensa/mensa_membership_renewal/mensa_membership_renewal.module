@@ -1,0 +1,27 @@
+<?php
+
+global $user;
+
+
+
+
+
+//Change the text on the submit button for mensa shop products
+function mensa_membership_renewal_form_commerce_cart_add_to_cart_form_alter(&$form, &$form_state){
+	$current_product = $form_state['default_product'];
+  if ($current_product->type == 'iq_test_event') {
+    $form['submit']['#value'] = t('Register now');
+  }	
+  if ($current_product->type == 'membership_renewal') {
+    $form['submit']['#value'] = t('Extend your membership now');
+  }
+  if ($current_product->type == 'membership_rejoin') {
+    $form['submit']['#value'] = t('Reactivate your membership now');
+  }
+  if ($current_product->type == 'membership_join') {
+    $form['submit']['#value'] = t('Join Mensa now');
+  }
+}
+
+
+?>

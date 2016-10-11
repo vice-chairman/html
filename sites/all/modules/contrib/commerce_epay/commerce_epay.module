@@ -1,0 +1,123 @@
+<?php
+/*
+  Copyright (c) 2010. All rights reserved ePay - www.epay.dk.
+
+  This program is free software. You are allowed to use the software but NOT allowed to modify the software. 
+  It is also not legal to do any changes to the software and distribute it in your own name / brand. 
+*/
+
+/**
+ * @file
+ * Implements ePay Payment Solution for use with Drupal Commerce.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_epay_menu() {
+  $items = array();
+
+  $items['commerce_epay/callback'] = array(
+    'page callback' => 'commerce_epay_process_callback',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['commerce_epay/callback/%commerce_payment_method_instance'] = array(
+    'page callback' => 'commerce_epay_process_callback',
+    'page arguments' => array(2),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['admin/commerce/orders/%commerce_order/payment/%commerce_payment_transaction/epay-payment-capture'] = array(
+    'title' => 'Capture',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_epay_payment_capture_form', 3, 5),
+    'access callback' => 'commerce_epay_payment_capture_access',
+    'access arguments' => array(5),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+    'weight' => 2,
+    'file' => 'includes/commerce_epay.admin.inc',
+  );
+  
+  $items['admin/commerce/orders/%commerce_order/payment/%commerce_payment_transaction/epay-payment-credit'] = array(
+    'title' => 'Credit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_epay_payment_credit_form', 3, 5),
+    'access callback' => 'commerce_epay_payment_credit_access',
+    'access arguments' => array(5),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+    'weight' => 2,
+    'file' => 'includes/commerce_epay.admin.inc',
+  );
+  
+  $items['admin/commerce/orders/%commerce_order/payment/%commerce_payment_transaction/epay-payment-moveascaptured'] = array(
+    'title' => 'Move as captured',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_epay_payment_moveascaptured_form', 3, 5),
+    'access callback' => 'commerce_epay_payment_moveascaptured_access',
+    'access arguments' => array(5),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+    'weight' => 2,
+    'file' => 'includes/commerce_epay.admin.inc',
+  );
+  
+  return $items;
+}
+
+function commerce_epay_getlanguage()
+{
+	global $language;
+	$langcode = $language->language;
+	
+	switch($langcode)
+	{
+		case 'dk': return '1'; break;
+		case 'da': return '1'; break;
+		case 'se': return '3'; break;
+		case 'en': return '2'; break;
+	}
+	
+	return '2';
+	
+}
+
+
+function commerce_epay_callback_url($method_id = NULL) {
+	$parts = array(
+		'commerce_epay',
+		'callback',
+	);
+
+	if (!empty($method_id)) {
+		$parts[] = $method_id;
+	}
+
+	return url(implode('/', $parts), array('absolute' => TRUE));
+}
+
+function commerce_epay_process_callback($payment_method = NULL, $debug_ipn = array()) {
+ 
+	if ($_GET['orderid']) {
+		$order = commerce_order_load($_GET['orderid']);
+	}
+	else{
+		$order = FALSE;
+	}
+
+	if (!empty($payment_method))
+	{
+		$callback = $payment_method['base'] . '_epay_callback_process';
+		if (function_exists($callback)) {
+			$callback($order, $payment_method, $_GET);
+		}
+	}
+
+	module_invoke_all('commerce_epay_callback_process', $order, $payment_method, $_GET);
+  
+}

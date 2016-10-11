@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Mensa - Image styels feature.
+ */
+
+include_once 'mensa_image_styels.features.inc';

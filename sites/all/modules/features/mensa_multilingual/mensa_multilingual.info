@@ -1,0 +1,11 @@
+name = Mensa - Multilingual
+description = Requret to run the site multi lingual
+core = 7.x
+package = Mensa
+version = 7.x-1.0
+project = mensa_multilingual
+dependencies[] = features
+dependencies[] = locale
+features[features_api][] = api:1
+features[language][] = da
+features[language][] = en

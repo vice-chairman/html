@@ -1,0 +1,149 @@
+<?php
+
+/**
+ * Implements hook_commerce_checkout_page_info().
+ */
+ 
+//Load older version of jQuery for backend
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+/*
+function example_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'library_alter') {
+    if(isset($implementations['jquery_update'])) { 
+      // Move jquery update to the end. This will make sure our hook_library_alter
+      // is always called before the jquery_update.
+      $jquery_update = $implementations['jquery_update'];
+      unset($implementations['jquery_update']);
+      $implementations['jquery_update'] = $jquery_update;
+    }
+  }
+}
+*/
+
+function example_get_seller_access_token ($order) {
+  // Get product id from first order line item.
+  $orders = commerce_order_load_multiple(array(), array('status' => 'pending'), TRUE);
+foreach($orders as $order) {
+  foreach ($order->commerce_line_items['und'] as $line) {
+    $line_item = commerce_line_item_load($line['line_item_id']);
+    $product_id = $line_item->commerce_product['und'][0]['product_id'];
+  }
+  //Load first product from order line item and fetch author uid
+  $product_item = commerce_product_load($product_id);
+  $product_uid = $product_item->uid;
+}
+  return $product_uid;
+}
+
+
+
+/**
+ * Implements hook_library_alter().
+ */
+function example_library_alter(&$libraries, $module) {
+  // If it is the admin theme all we want to do is change the global $conf
+  // variable so when jquery_update runs right after us it will use 1.5.
+  // We are not using path_is_admin(current_path()) because some admin path can use
+  // the frontend theme like node edit page
+  global $theme_key;
+  if (variable_get('admin_theme') == $theme_key) {
+    // Modifying global $conf variable, can be dangerous. Be carefull.
+    global $conf;
+    $conf['jquery_update_jquery_version'] = '1.5';
+  }
+}
+
+//Set dansih VAT of 25% as the default value on the product creation form
+
+
+
+
+
+function example_form_iq_test_event_node_form_alter(&$form, &$form_state) {
+	
+	if ( $form['field_product']['und']['form']['commerce_price']['und']['0']['amount']['#default_value'] == '' ){
+		$form['field_product']['und']['form']['commerce_price']['und']['0']['amount']['#default_value'] = '150';
+	}
+	$form['field_product']['und']['form']['commerce_price']['und']['0']['include_tax']['#default_value'] = 'moms';
+    //hide the tax dropdown if you like
+    $form['field_product']['und']['form']['commerce_price']['und']['0']['include_tax']['#access'] = FALSE;
+    
+    //print_r($form);
+}
+
+
+module_load_include('inc', 'example', 'example.rules');
+
+/*
+function example_commerce_checkout_page_info() {
+  $checkout_pages = array();
+ 
+  $checkout_pages['kontaktinfo'] = array(
+    'name' => t('Kontaktinfo'),
+    'title' => t('KONTAKTINFO'),
+    'weight' => -10,
+    'status_cart' => FALSE,
+    'buttons' => TRUE,
+  );
+  
+  $checkout_pages['interesser'] = array(
+    'name' => t('Interesser'),
+    'title' => t('INTERESSER'),
+    'weight' => -9,
+    'status_cart' => FALSE,
+    'buttons' => TRUE,
+  );
+  
+  $checkout_pages['validering'] = array(
+    'name' => t('Validering'),
+    'title' => t('VALIDERING'),
+    'weight' => -8,
+    'status_cart' => FALSE,
+    'buttons' => TRUE,
+  );
+ 
+  return $checkout_pages;
+}
+*/
+
+/**
+ * Implements hook_commerce_checkout_pane_info().
+ */
+/*
+function example_commerce_checkout_pane_info() {
+  $checkout_panes = array();
+ 
+  $checkout_panes['example_pane'] = array(
+    'title' => t('Node form'),
+    'file' => 'example.checkout_pane.inc',
+    'base' => 'example_pane',
+    'page' => 'example_form_page',
+    'callbacks' => array(
+      'checkout_form_submit' => 'example_pane_checkout_form_submit',
+    ),
+    'fieldset' => FALSE,
+  );
+ 
+  return $checkout_panes;
+}
+*/
+
+/**
+ * Implements hook_commerce_checkout_router().
+ *
+ * Create node on complete checkout page.
+ */
+/*
+function example_commerce_checkout_router($order, $checkout_page) {
+  if ($checkout_page['page_id'] != 'complete' || !isset($order->data['node'])) {
+    return;
+  }
+
+  $node = (object) $order->data['node'];
+  node_save($node);
+  unset($order->data['node']);
+}
+*/

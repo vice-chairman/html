@@ -1,0 +1,5 @@
+name = Example Checkout Step
+description = Create new step in checkout process.
+package = Example
+dependencies[] = commerce_checkout
+core = 7.x

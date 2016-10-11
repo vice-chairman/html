@@ -1,0 +1,749 @@
+<?php
+/*
+  Copyright (c) 2010. All rights reserved ePay - www.epay.dk.
+
+  This program is free software. You are allowed to use the software but NOT allowed to modify the software. 
+  It is also not legal to do any changes to the software and distribute it in your own name / brand. 
+*/
+
+/**
+ * @file
+ * Implements ePay in Drupal Commerce checkout.
+ */
+
+/**
+ * Implements hook_commerce_payment_method_info().
+ */
+function commerce_epay_payment_commerce_payment_method_info() {
+  $payment_methods = array();
+
+  $payment_methods['commerce_epay_payment'] = array(
+    'base' => 'commerce_epay_payment',
+    'title' => t('ePay Payment Solutions'),
+    'short_title' => t('ePay'),
+    'description' => t('ePay Payment Solution'),
+    'terminal' => FALSE,
+    'offsite' => TRUE,
+    'offsite_autoredirect' => TRUE,
+  );
+  
+  return $payment_methods;
+}
+
+function commerce_epay_payment_capture_access($transaction)
+{
+	
+	$payment_method = commerce_payment_method_instance_load($transaction->instance_id);
+	
+	if($transaction->status == COMMERCE_PAYMENT_STATUS_SUCCESS)
+	{
+		return false;	
+	}
+
+	if($payment_method["settings"]["remoteinterface"] == 0)
+	{
+		return false;
+	}
+
+	if ($transaction->payment_method != 'commerce_epay_payment')
+	{
+		return false;
+	}
+
+	// Allow access if the user can update payments on this order.
+	return commerce_payment_transaction_access('update', $transaction);
+}
+
+function commerce_epay_payment_credit_access($transaction)
+{
+	$payment_method = commerce_payment_method_instance_load($transaction->instance_id);
+
+	if($payment_method["settings"]["remoteinterface"] == 0)
+	{
+		return false;
+	}
+	
+	$client = new SoapClient('https://ssl.ditonlinebetalingssystem.dk/remote/payment.asmx?WSDL');
+	$params = array
+	(
+		'merchantnumber' => $payment_method["settings"]["merchantnumber"],
+		'transactionid' => $transaction->remote_id,
+		'epayresponse' => '',
+		'pwd' => $payment_method["settings"]["remotepassword"]
+	);
+	
+	$epayTransaction = $client->gettransaction($params);
+	
+	if($transaction->status == COMMERCE_PAYMENT_STATUS_PENDING and ($epayTransaction->transactionInformation->splitpayment == false and $epayTransaction->transactionInformation->authamount < $epayTransaction->transactionInformation->capturedamount))
+	{
+		return false;	
+	}
+	
+	if($epayTransaction->transactionInformation->status == 'PAYMENT_NEW')
+	{
+		return false;
+	}
+	
+	if($epayTransaction->transactionInformation->capturedamount == $epayTransaction->transactionInformation->creditedamount)
+	{
+		return false;
+	}
+
+	if ($transaction->payment_method != 'commerce_epay_payment')
+	{
+		return false;
+	}
+
+	// Allow access if the user can update payments on this order.
+	return commerce_payment_transaction_access('update', $transaction);
+}
+
+function commerce_epay_payment_moveascaptured_access($transaction)
+{
+	$payment_method = commerce_payment_method_instance_load($transaction->instance_id);
+	
+	if($transaction->status == COMMERCE_PAYMENT_STATUS_SUCCESS)
+	{
+		return false;	
+	}
+
+	if($payment_method["settings"]["remoteinterface"] == 0)
+	{
+		return false;
+	}
+
+	if ($transaction->payment_method != 'commerce_epay_payment')
+	{
+		return false;
+	}
+	
+	$client = new SoapClient('https://ssl.ditonlinebetalingssystem.dk/remote/payment.asmx?WSDL');
+	$params = array
+	(
+		'merchantnumber' => $payment_method["settings"]["merchantnumber"],
+		'transactionid' => $transaction->remote_id,
+		'epayresponse' => '',
+		'pwd' => $payment_method["settings"]["remotepassword"]
+	);
+	
+	$epayTransaction = $client->gettransaction($params);
+
+	if($epayTransaction->transactionInformation->splitpayment == false or $epayTransaction->transactionInformation->authamount == $epayTransaction->transactionInformation->capturedamount)
+	{
+		return false;	
+	}
+	
+	if($epayTransaction->transactionInformation->capturedamount == 0)
+	{
+		return false;
+	}
+
+	// Allow access if the user can update payments on this order.
+	return commerce_payment_transaction_access('update', $transaction);
+}
+
+/**
+ * Payment method callback: settings form.
+ */
+function commerce_epay_payment_settings_form($settings = NULL) {
+	
+	$form = array();
+  
+	$settings = (array)$settings + array
+	(
+		'merchantnumber' => '',
+		'windowid' => '1',
+		'group' => '',
+		'md5key' => '',
+		'authsms' => '',
+		'authmail' => '',
+		'instantcapture' => '0',
+		'splitpayment' => '0',
+		'remoteinterface' => '0',
+		'remotepassword' => '',
+		'ownreceipt' => 0,
+	);
+	$form["merchantnumber"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Merchantnumber'),
+		'#description' => t('The unique merchantnumber received from the payment system.<br />If you don\'t know your merchantnumber please log into your account <a href="https://ssl.ditonlinebetalingssystem.dk/admin/" target="_blank">here</a>.<br />You can then find your merchantnumber from the menu <b>Settings</b> -> <b>Payment System</b>'),
+		'#default_value' => $settings["merchantnumber"],
+		'#required' => TRUE
+	);
+	$form["windowid"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Window ID'),
+		'#description' => t('the Window to use.'),
+		'#default_value' => $settings["windowid"],
+		'#required' => TRUE
+	);
+	$form["remoteinterface"] = array
+	(
+		'#type' => 'select',
+		'#title' => t('Remote interface'),
+		'#description' => t('Enable this option in order to capture, credit and delete payments directly from the administration on the order page. You then don\'t need to enter the administration area of the payment system in order to process payments. <b>Notice!</b> This feature require the BUSINESS subscription.'),
+		'#options' => array(0 => 'Disabled', 1 => 'Enabled'),
+		'#default_value' => $settings["remoteinterface"],
+	);
+	$form["remotepassword"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Remote interface password'),
+		'#description' => t('If payments is processed from within the order administration and a password is added in the ePay administration is should be added here too.'),
+		'#default_value' => $settings["remotepassword"],
+	);
+	$form["group"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Group'),
+		'#description' => t('This setting is used to assign the payment to a specific group within the payment system.'),
+		'#default_value' => $settings["group"]
+	);
+	$form["md5key"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('MD5 key'),
+		'#description' => t('This is the secret password you must enter both here and within the payment system if you enable MD5 above. Notice that the secret password must be 100% the same. Otherwise the customer will be declined as payments are made. You can log into your account on the payment system <a href="https://ssl.ditonlinebetalingssystem.dk/admin/" target="_blank">here</a>. The MD5 settings are to be found from the menu <b>Settings</b> -> <b>Payment System</b>.'),
+		'#default_value' => $settings["md5key"]
+	);
+	$form["authsms"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Auth SMS'),
+		'#description' => t('This setting is used if you need to receive a SMS with payment information as the payment is made. Just enter you mobile number (e.g. +45xxxxxxxx). If you have multiple receivers you can separate the list by semicolon (;). <b>Notice!</b> This service is not free. The price per SMS is DKK 0.25.'),
+		'#default_value' => $settings["authsms"]
+	);
+	$form["authmail"] = array
+	(
+		'#type' => 'textfield',
+		'#title' => t('Auth Mail'),
+		'#description' => t('The auth mail setting is used if you need to receive an e-mail with payment information from the payment system as the payment is made. If you have multiple receivers you can separate the list by semicolon (;).'),
+		'#default_value' => $settings["authmail"]
+	);
+	$form["instantcapture"] = array
+	(
+		'#type' => 'select',
+		'#title' => t('Instant capture'),
+		'#description' => t('This is used if you wish to capture the payments at the same time as it is authorized. This option may only be used if the cardholder receives the goods at once.'),
+		'#options' => array(0 => 'No', 1 => 'Yes'),
+		'#default_value' => $settings["instantcapture"]
+	);
+	
+	$form["ownreceipt"] = array
+	(
+		'#type' => 'select',
+		'#title' => t('Own receipt'),
+		'#description' => t('If the receipt should be displayd in the shop only and NOT in the payment window'),
+		'#options' => array(0 => 'No', 1 => 'Yes'),
+		'#default_value' => $settings["ownreceipt"]
+	);
+
+	return $form;
+}
+
+function commerce_epay_payment_epay_payment_redirect_form($form, &$form_state, $order, $payment_method)
+{
+	return commerce_epay_payment_redirect_form($form, $form_state, $order, $payment_method);
+}
+
+function commerce_epay_payment_redirect_form($form, &$form_state, $order, $payment_method) {
+	
+	$child_paymentmethod = $payment_method;
+	
+	$payment_method = commerce_payment_method_instance_load('commerce_epay_payment|commerce_payment_commerce_epay_payment');
+	
+	// Return an error if the enabling action's settings haven't been configured.
+	if (empty($payment_method['settings']['merchantnumber'])) {
+		drupal_set_message(t('You must specify a merchant number.'), 'error');
+		return array();
+	}
+	
+	$settings = array(
+		'declineurl' => url('checkout/' . $order->order_id . '/payment/back/' . $order->data['payment_redirect_key'], array('absolute' => TRUE)),
+		'accepturl' => url('checkout/' . $order->order_id . '/payment/return/' . $order->data['payment_redirect_key'], array('absolute' => TRUE)),
+		'payment_method' => $payment_method,
+		'payment_child' => $child_paymentmethod
+	);
+
+	return commerce_epay_payment_order_form($form, $form_state, $order, $payment_method['settings'] + $settings);
+}
+
+function commerce_epay_payment_epay_callback_process($order, $payment_method, &$callback)
+{
+	if($order->data["commerce_payment_order_paid_in_full_invoked"] == 0)
+	{
+		$transaction = commerce_payment_transaction_new('commerce_epay_payment', $order->order_id);
+		$transaction->instance_id = $payment_method["instance_id"];
+		$transaction->remote_id = $callback["txnid"];
+		$transaction->amount = commerce_currency_decimal_to_amount(($callback["amount"]+$callback["txnfee"]) / 100, commerce_epay_payment_getcurrencycode($callback["currency"]));
+		$transaction->currency_code = commerce_epay_payment_getcurrencycode($callback["currency"]);
+		$transaction->payload[REQUEST_TIME] = $callback;
+		
+		if($payment_method["settings"]["instantcapture"] == 1)
+		{
+			$transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+			$transaction->message = t('The payment has been completed.');
+		}
+		else
+		{
+			$transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
+			$transaction->message = t('The payment has been authorized.');
+		}
+
+		if(strlen($payment_method["settings"]["md5key"]) > 0)
+		{
+			$md5string = "";
+			foreach ($callback as $key => $value)
+			{
+				if($key != "hash" && $key != "q")
+				{
+					$md5string .= $value;
+				}
+			}
+			
+			if(md5($md5string . $payment_method["settings"]["md5key"]) != $callback["hash"])
+			{
+				$transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+				$transaction->message = t('MD5 is invalid.');
+				echo $md5string . " - ";
+			}
+			
+		}
+
+		if($callback["txnfee"] > 0)
+		{
+			$transaction->message .= '<br />'. t('Transaction fee included: ') . commerce_currency_format($callback["txnfee"], commerce_epay_payment_getcurrencycode($callback["currency"]));
+		}
+		
+		commerce_payment_transaction_save($transaction);
+
+		$callback["transaction_id"] = $transaction->transaction_id;
+	}
+	echo "OK";
+	watchdog('commerce_epay_payment', 'Callback processed for Order @order_number with transaction ID @tid.', array('@tid' => $callback['txnid'], '@order_number' => $order->order_number), WATCHDOG_INFO);
+}
+
+function commerce_epay_payment_order_form($form, &$form_state, $order, $settings) {
+	$wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+	$currency_code = $wrapper->commerce_order_total->currency_code->value();
+	$amount = $wrapper->commerce_order_total->amount->value();
+
+	// Ensure a default value for the payment_method setting.
+	$settings += array('payment_method' => '');
+	
+	/*
+	if($settings["payment_child"]["instance_id"] != "commerce_epay_payment|commerce_payment_commerce_epay_payment")
+	{
+		$settings["integrationmode"] = 0;
+	}
+	*/
+
+	// Build the data array that will be translated into hidden form values.
+	$data = array
+	(
+		'merchantnumber' => $settings["merchantnumber"],
+		'amount' => $amount,
+		'orderid' => $order->order_id,
+		'instantcallback' => 1,
+		'callbackurl' => commerce_epay_callback_url('commerce_epay_payment|commerce_payment_commerce_epay_payment'),
+		'cancelurl' => $settings["declineurl"],
+		'accepturl' => $settings["accepturl"],
+		'windowstate' => 3,
+		'currency' => commerce_epay_payment_getisocode($currency_code),
+		'language' => commerce_epay_getlanguage(),
+		'instantcapture' => $settings["instantcapture"],
+		'smsreceipt' => $settings["authsms"],
+		'mailreceipt' => $settings["authmail"],
+		'group' => $settings["group"],
+		'ownreceipt' => $settings["ownreceipt"]
+	);
+	
+	//if($settings["md5mode"] == 2)
+	//{
+		$data["hash"] = md5(implode("", $data) . $settings["md5key"]);
+	//}
+
+	$form["#action"] = 'https://ssl.ditonlinebetalingssystem.dk/integration/ewindow/Default.aspx';
+		
+	foreach ($data as $name => $value)
+	{
+		$form[$name] = array('#type' => 'hidden', '#value' => $value);
+	}
+	
+	$form["submit"] = array('#type' => 'submit', '#value' => t('Proceed to ePay'));
+	
+	return $form;
+}
+
+function commerce_epay_payment_getcurrencycode($iso)
+{
+	switch($iso)
+	{
+		case '020': return 'ADP'; break;
+		case '784': return 'AED'; break;
+		case '004': return 'AFA'; break;
+		case '008': return 'ALL'; break;
+		case '051': return 'AMD'; break;
+		case '532': return 'ANG'; break;
+		case '973': return 'AOA'; break;
+		case '032': return 'ARS'; break;
+		case '036': return 'AUD'; break;
+		case '533': return 'AWG'; break;
+		case '031': return 'AZM'; break;
+		case '977': return 'BAM'; break;
+		case '052': return 'BBD'; break;
+		case '050': return 'BDT'; break;
+		case '100': return 'BGL'; break;
+		case '975': return 'BGN'; break;
+		case '048': return 'BHD'; break;
+		case '108': return 'BIF'; break;
+		case '060': return 'BMD'; break;
+		case '096': return 'BND'; break;
+		case '068': return 'BOB'; break;
+		case '984': return 'BOV'; break;
+		case '986': return 'BRL'; break;
+		case '044': return 'BSD'; break;
+		case '064': return 'BTN'; break;
+		case '072': return 'BWP'; break;
+		case '974': return 'BYR'; break;
+		case '084': return 'BZD'; break;
+		case '124': return 'CAD'; break;
+		case '976': return 'CDF'; break;
+		case '756': return 'CHF'; break;
+		case '990': return 'CLF'; break;
+		case '152': return 'CLP'; break;
+		case '156': return 'CNY'; break;
+		case '170': return 'COP'; break;
+		case '188': return 'CRC'; break;
+		case '192': return 'CUP'; break;
+		case '132': return 'CVE'; break;
+		case '196': return 'CYP'; break;
+		case '203': return 'CZK'; break;
+		case '262': return 'DJF'; break;
+		case '208': return 'DKK'; break;
+		case '214': return 'DOP'; break;
+		case '012': return 'DZD'; break;
+		case '218': return 'ECS'; break;
+		case '983': return 'ECV'; break;
+		case '233': return 'EEK'; break;
+		case '818': return 'EGP'; break;
+		case '232': return 'ERN'; break;
+		case '230': return 'ETB'; break;
+		case '978': return 'EUR'; break;
+		case '242': return 'FJD'; break;
+		case '238': return 'FKP'; break;
+		case '826': return 'GBP'; break;
+		case '981': return 'GEL'; break;
+		case '288': return 'GHC'; break;
+		case '292': return 'GIP'; break;
+		case '270': return 'GMD'; break;
+		case '324': return 'GNF'; break;
+		case '320': return 'GTQ'; break;
+		case '624': return 'GWP'; break;
+		case '328': return 'GYD'; break;
+		case '344': return 'HKD'; break;
+		case '340': return 'HNL'; break;
+		case '191': return 'HRK'; break;
+		case '332': return 'HTG'; break;
+		case '348': return 'HUF'; break;
+		case '360': return 'IDR'; break;
+		case '376': return 'ILS'; break;
+		case '356': return 'INR'; break;
+		case '368': return 'IQD'; break;
+		case '364': return 'IRR'; break;
+		case '352': return 'ISK'; break;
+		case '388': return 'JMD'; break;
+		case '400': return 'JOD'; break;
+		case '392': return 'JPY'; break;
+		case '404': return 'KES'; break;
+		case '417': return 'KGS'; break;
+		case '116': return 'KHR'; break;
+		case '174': return 'KMF'; break;
+		case '408': return 'KPW'; break;
+		case '410': return 'KRW'; break;
+		case '414': return 'KWD'; break;
+		case '136': return 'KYD'; break;
+		case '398': return 'KZT'; break;
+		case '418': return 'LAK'; break;
+		case '422': return 'LBP'; break;
+		case '144': return 'LKR'; break;
+		case '430': return 'LRD'; break;
+		case '426': return 'LSL'; break;
+		case '440': return 'LTL'; break;
+		case '428': return 'LVL'; break;
+		case '434': return 'LYD'; break;
+		case '504': return 'MAD'; break;
+		case '498': return 'MDL'; break;
+		case '450': return 'MGF'; break;
+		case '807': return 'MKD'; break;
+		case '104': return 'MMK'; break;
+		case '496': return 'MNT'; break;
+		case '446': return 'MOP'; break;
+		case '478': return 'MRO'; break;
+		case '470': return 'MTL'; break;
+		case '480': return 'MUR'; break;
+		case '462': return 'MVR'; break;
+		case '454': return 'MWK'; break;
+		case '484': return 'MXN'; break;
+		case '979': return 'MXV'; break;
+		case '458': return 'MYR'; break;
+		case '508': return 'MZM'; break;
+		case '516': return 'NAD'; break;
+		case '566': return 'NGN'; break;
+		case '558': return 'NIO'; break;
+		case '578': return 'NOK'; break;
+		case '524': return 'NPR'; break;
+		case '554': return 'NZD'; break;
+		case '512': return 'OMR'; break;
+		case '590': return 'PAB'; break;
+		case '604': return 'PEN'; break;
+		case '598': return 'PGK'; break;
+		case '608': return 'PHP'; break;
+		case '586': return 'PKR'; break;
+		case '985': return 'PLN'; break;
+		case '600': return 'PYG'; break;
+		case '634': return 'QAR'; break;
+		case '642': return 'ROL'; break;
+		case '643': return 'RUB'; break;
+		case '810': return 'RUR'; break;
+		case '646': return 'RWF'; break;
+		case '682': return 'SAR'; break;
+		case '090': return 'SBD'; break;
+		case '690': return 'SCR'; break;
+		case '736': return 'SDD'; break;
+		case '752': return 'SEK'; break;
+		case '702': return 'SGD'; break;
+		case '654': return 'SHP'; break;
+		case '705': return 'SIT'; break;
+		case '703': return 'SKK'; break;
+		case '694': return 'SLL'; break;
+		case '706': return 'SOS'; break;
+		case '740': return 'SRG'; break;
+		case '678': return 'STD'; break;
+		case '222': return 'SVC'; break;
+		case '760': return 'SYP'; break;
+		case '748': return 'SZL'; break;
+		case '764': return 'THB'; break;
+		case '972': return 'TJS'; break;
+		case '795': return 'TMM'; break;
+		case '788': return 'TND'; break;
+		case '776': return 'TOP'; break;
+		case '626': return 'TPE'; break;
+		case '792': return 'TRL'; break;
+		case '949': return 'TRY'; break;
+		case '780': return 'TTD'; break;
+		case '901': return 'TWD'; break;
+		case '834': return 'TZS'; break;
+		case '980': return 'UAH'; break;
+		case '800': return 'UGX'; break;
+		case '840': return 'USD'; break;
+		case '858': return 'UYU'; break;
+		case '860': return 'UZS'; break;
+		case '862': return 'VEB'; break;
+		case '704': return 'VND'; break;
+		case '548': return 'VUV'; break;
+		case '950': return 'XAF'; break;
+		case '951': return 'XCD'; break;
+		case '952': return 'XOF'; break;
+		case '953': return 'XPF'; break;
+		case '886': return 'YER'; break;
+		case '891': return 'YUM'; break;
+		case '710': return 'ZAR'; break;
+		case '894': return 'ZMK'; break;
+		case '716': return 'ZWD'; break;	
+	}
+	return 'DKK';
+}
+
+function commerce_epay_payment_getisocode($code) 
+{
+	switch ($code) 
+	{
+		case 'ADP': return '020'; break;
+		case 'AED': return '784'; break;
+		case 'AFA': return '004'; break;
+		case 'ALL': return '008'; break;
+		case 'AMD': return '051'; break;
+		case 'ANG': return '532'; break;
+		case 'AOA': return '973'; break;
+		case 'ARS': return '032'; break;
+		case 'AUD': return '036'; break;
+		case 'AWG': return '533'; break;
+		case 'AZM': return '031'; break;
+		case 'BAM': return '977'; break;
+		case 'BBD': return '052'; break;
+		case 'BDT': return '050'; break;
+		case 'BGL': return '100'; break;
+		case 'BGN': return '975'; break;
+		case 'BHD': return '048'; break;
+		case 'BIF': return '108'; break;
+		case 'BMD': return '060'; break;
+		case 'BND': return '096'; break;
+		case 'BOB': return '068'; break;
+		case 'BOV': return '984'; break;
+		case 'BRL': return '986'; break;
+		case 'BSD': return '044'; break;
+		case 'BTN': return '064'; break;
+		case 'BWP': return '072'; break;
+		case 'BYR': return '974'; break;
+		case 'BZD': return '084'; break;
+		case 'CAD': return '124'; break;
+		case 'CDF': return '976'; break;
+		case 'CHF': return '756'; break;
+		case 'CLF': return '990'; break;
+		case 'CLP': return '152'; break;
+		case 'CNY': return '156'; break;
+		case 'COP': return '170'; break;
+		case 'CRC': return '188'; break;
+		case 'CUP': return '192'; break;
+		case 'CVE': return '132'; break;
+		case 'CYP': return '196'; break;
+		case 'CZK': return '203'; break;
+		case 'DJF': return '262'; break;
+		case 'DKK': return '208'; break;
+		case 'DOP': return '214'; break;
+		case 'DZD': return '012'; break;
+		case 'ECS': return '218'; break;
+		case 'ECV': return '983'; break;
+		case 'EEK': return '233'; break;
+		case 'EGP': return '818'; break;
+		case 'ERN': return '232'; break;
+		case 'ETB': return '230'; break;
+		case 'EUR': return '978'; break;
+		case 'FJD': return '242'; break;
+		case 'FKP': return '238'; break;
+		case 'GBP': return '826'; break;
+		case 'GEL': return '981'; break;
+		case 'GHC': return '288'; break;
+		case 'GIP': return '292'; break;
+		case 'GMD': return '270'; break;
+		case 'GNF': return '324'; break;
+		case 'GTQ': return '320'; break;
+		case 'GWP': return '624'; break;
+		case 'GYD': return '328'; break;
+		case 'HKD': return '344'; break;
+		case 'HNL': return '340'; break;
+		case 'HRK': return '191'; break;
+		case 'HTG': return '332'; break;
+		case 'HUF': return '348'; break;
+		case 'IDR': return '360'; break;
+		case 'ILS': return '376'; break;
+		case 'INR': return '356'; break;
+		case 'IQD': return '368'; break;
+		case 'IRR': return '364'; break;
+		case 'ISK': return '352'; break;
+		case 'JMD': return '388'; break;
+		case 'JOD': return '400'; break;
+		case 'JPY': return '392'; break;
+		case 'KES': return '404'; break;
+		case 'KGS': return '417'; break;
+		case 'KHR': return '116'; break;
+		case 'KMF': return '174'; break;
+		case 'KPW': return '408'; break;
+		case 'KRW': return '410'; break;
+		case 'KWD': return '414'; break;
+		case 'KYD': return '136'; break;
+		case 'KZT': return '398'; break;
+		case 'LAK': return '418'; break;
+		case 'LBP': return '422'; break;
+		case 'LKR': return '144'; break;
+		case 'LRD': return '430'; break;
+		case 'LSL': return '426'; break;
+		case 'LTL': return '440'; break;
+		case 'LVL': return '428'; break;
+		case 'LYD': return '434'; break;
+		case 'MAD': return '504'; break;
+		case 'MDL': return '498'; break;
+		case 'MGF': return '450'; break;
+		case 'MKD': return '807'; break;
+		case 'MMK': return '104'; break;
+		case 'MNT': return '496'; break;
+		case 'MOP': return '446'; break;
+		case 'MRO': return '478'; break;
+		case 'MTL': return '470'; break;
+		case 'MUR': return '480'; break;
+		case 'MVR': return '462'; break;
+		case 'MWK': return '454'; break;
+		case 'MXN': return '484'; break;
+		case 'MXV': return '979'; break;
+		case 'MYR': return '458'; break;
+		case 'MZM': return '508'; break;
+		case 'NAD': return '516'; break;
+		case 'NGN': return '566'; break;
+		case 'NIO': return '558'; break;
+		case 'NOK': return '578'; break;
+		case 'NPR': return '524'; break;
+		case 'NZD': return '554'; break;
+		case 'OMR': return '512'; break;
+		case 'PAB': return '590'; break;
+		case 'PEN': return '604'; break;
+		case 'PGK': return '598'; break;
+		case 'PHP': return '608'; break;
+		case 'PKR': return '586'; break;
+		case 'PLN': return '985'; break;
+		case 'PYG': return '600'; break;
+		case 'QAR': return '634'; break;
+		case 'ROL': return '642'; break;
+		case 'RUB': return '643'; break;
+		case 'RUR': return '810'; break;
+		case 'RWF': return '646'; break;
+		case 'SAR': return '682'; break;
+		case 'SBD': return '090'; break;
+		case 'SCR': return '690'; break;
+		case 'SDD': return '736'; break;
+		case 'SEK': return '752'; break;
+		case 'SGD': return '702'; break;
+		case 'SHP': return '654'; break;
+		case 'SIT': return '705'; break;
+		case 'SKK': return '703'; break;
+		case 'SLL': return '694'; break;
+		case 'SOS': return '706'; break;
+		case 'SRG': return '740'; break;
+		case 'STD': return '678'; break;
+		case 'SVC': return '222'; break;
+		case 'SYP': return '760'; break;
+		case 'SZL': return '748'; break;
+		case 'THB': return '764'; break;
+		case 'TJS': return '972'; break;
+		case 'TMM': return '795'; break;
+		case 'TND': return '788'; break;
+		case 'TOP': return '776'; break;
+		case 'TPE': return '626'; break;
+		case 'TRL': return '792'; break;
+		case 'TRY': return '949'; break;
+		case 'TTD': return '780'; break;
+		case 'TWD': return '901'; break;
+		case 'TZS': return '834'; break;
+		case 'UAH': return '980'; break;
+		case 'UGX': return '800'; break;
+		case 'USD': return '840'; break;
+		case 'UYU': return '858'; break;
+		case 'UZS': return '860'; break;
+		case 'VEB': return '862'; break;
+		case 'VND': return '704'; break;
+		case 'VUV': return '548'; break;
+		case 'XAF': return '950'; break;
+		case 'XCD': return '951'; break;
+		case 'XOF': return '952'; break;
+		case 'XPF': return '953'; break;
+		case 'YER': return '886'; break;
+		case 'YUM': return '891'; break;
+		case 'ZAR': return '710'; break;
+		case 'ZMK': return '894'; break;
+		case 'ZWD': return '716'; break;
+	}
+	//
+	// As default return 208 for Danish Kroner
+	//
+	return '208';
+}
+
+/**
+ * Returns an array of all possible language codes.
+ */
+function commerce_epay_payment_languages() {
+	return drupal_map_assoc(array('DK', 'EN'));
+}

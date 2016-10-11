@@ -1,0 +1,905 @@
+<?php
+
+//Set alternative frontpage for members
+global $user;
+/*
+if (arg(0) == '' && in_array('Member', $user->roles) ){
+	header('Location: /member-news');
+}
+*/
+
+//Rediret from standart user to mensa profile
+if (arg(0) == 'user' &&  (arg(2) == '' || arg(2) != 'profile' && arg(2) != 'edit' && arg(2) != 'mailman_manager' ) && arg(0) == 'user' &&  ( arg(1) != 'password' && arg(1) != 'reset' )){
+	
+	global $user;
+	if (in_array('administrator', $user->roles) || arg(1) == ''){
+		
+	}else{
+		$location = '/user/' . arg(1) . '/profile';
+		header('Location: '.$location);
+	}
+}
+
+
+
+//Rediret from standart user to mensa profile
+if (arg(0) == 'users' && arg(1) != ''){
+	$location = '/';
+	header('Location: '.$location);
+}
+
+
+function mensa_user_view_edit_form_user_profile_form_alter(&$form, &$form_state) {
+	
+	global $user;
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'user' ){
+		
+		$form["#after_build"][] = "userFormAccount";
+	
+	}
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'profile' ){
+		
+		$form["#after_build"][] = "userFormProfile";		
+	}
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'mail-alias' ){
+		
+		$form["#after_build"][] = "userFormMailAlias";		
+	}
+	
+	if (!arg(3) || arg(3) != 'user' && arg(3) != 'profile' && arg(3) != 'mail-alias' && arg(3) != 'locsec' && arg(3) != 'integration' && arg(3) != 'deliveries' ){
+		
+		if (in_array('User admin', $user->roles) && arg(3) == 'member'){
+		
+			$form['#after_build'][] = 'userAdminUserEdit';
+			
+		}elseif(in_array('administrator', $user->roles)){
+		
+		}else{
+			$form["#after_build"][] = "userFormForgotPassword";
+		}
+				
+	}
+	
+	if (in_array('LocSec', $user->roles) && arg(3) == 'locsec' ){
+		
+		$form["#after_build"][] = "userFormLocsec";		
+	}
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'integration' ){
+		
+		$form["#after_build"][] = "userFormIntegration";		
+	}
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'deliveries' ){
+		
+		$form["#after_build"][] = "userFormDeliveries";		
+	}
+	
+	if (in_array('authenticated user', $user->roles) && arg(3) == 'password' ){
+		
+		global $user;
+		$uid = $user->uid;
+		$result = db_query('SELECT pass
+                                FROM {users}
+                                WHERE uid = :uid', array(':uid' => $uid));
+
+		 foreach( $result as $record){
+		       if ( $record->pass == '' ){
+		       	//drupal_set_message(t("Password er ikke sat"), 'default');
+		       }else{
+		       	//drupal_set_message(t("Password er sat!"), 'warning');
+			       $location = '/member-news';
+				   header('Location: '.$location);
+		       }
+		
+		}
+
+			$form["#after_build"][] = "userFormSetPassword";	
+	}
+
+}
+
+//Hide form fields for user profile to show
+function userFormAccount($form, &$form_state) {
+	//Hide picture upload
+		$form['picture']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['account']['name']['#access'] = FALSE;
+		
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		//$form['field_birthdate']['#required'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		
+		//remove alias input fields
+		
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+     
+		
+		
+		
+		//dpm($form);
+		
+		
+		
+		return $form;
+
+}
+
+
+//Hide form fields for user profile
+function userFormProfile($form, &$form_state) {
+		//dpm($form);
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;$form['account']['name']['#access'] = FALSE;
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['account']['current_pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		return $form;
+		
+		
+		
+		
+		
+}
+
+//Hide form fields for mail-alias
+function userFormMailAlias($form, &$form_state) {
+	//Hide picture upload
+		$form['picture']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['account']['current_pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		//$form['field_representative_title']['#access'] = FALSE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		//dpm($form);
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+				if ($group == 'group_personal_mail_alias') {
+				
+				}else{
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				}
+			}
+		}
+		
+		
+		
+		global $user;
+		$uid = $user->uid;
+		$result = db_query('SELECT a.entity_id, a.field_representative_title_tid, b.entity_id, b.field_representative_mail_alias_value, c.entity_id, c.field_tillad_at_brugere_selv_kan_value
+		FROM {field_data_field_representative_title} a
+		LEFT JOIN {field_data_field_representative_mail_alias} b on b.entity_id = a.field_representative_title_tid
+		LEFT JOIN {field_data_field_tillad_at_brugere_selv_kan} c on c.entity_id = a.field_representative_title_tid
+		WHERE a.entity_id = :uid', array(':uid' => $uid));
+	
+		foreach ($result as $record) {
+			
+			$mail = $record->field_representative_mail_alias_value;
+			$disabled = $record->field_tillad_at_brugere_selv_kan_value;
+			$tid = $record->entity_id;
+			
+			
+				if (isset($form['#fieldgroups']['group_' . $tid]) && isset($form['#group_children'])) {
+		        	foreach ($form['#group_children'] as $field => $group) {
+						if ($group == 'group_' . $tid) {
+					   
+						   $form[$field]['#access'] = TRUE;
+						   //$form[$field]['#disabled'] = FALSE;
+						   if ( $disabled == 0){
+						   		$form['mail_alias_' . $tid]['und']['0']['value']['#attributes']['disabled'] = TRUE;
+						   		
+						   		if ( $form['mail_alias_' . $tid]['und']['0']['value']['#value'] == '' ){
+						   		
+						   			$form['mail_alias_' . $tid]['und']['0']['value']['#value'] = $mail;
+						   		}
+						   }elseif( $disabled == 1 && $mail != ''){
+							   $form['mail_alias_' . $tid]['und']['0']['#suffix'] = '<div class="mail-suffix"><input type="text" value="' . $mail . '" disabled="disabled" class="text-full form-control form-text group-alias-field"></input></div>';
+						   }
+						   
+						   
+						}
+						   
+					}
+				}
+			
+			
+			
+			 
+			
+			
+			
+		}
+		
+		
+		return $form;
+
+}
+
+//Hide form fields for user LocSec to show
+function userFormLocsec($form, &$form_state) {
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['account']['current_pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['picture']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		//$form['field_representative_title']['#access'] = FALSE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		return $form;
+		
+		//dpm($form);
+}
+
+//Hide form fields for Integration
+function userFormIntegration($form, &$form_state) {
+	//Hide picture upload
+		$form['picture']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['account']['current_pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_dummy_password']['und'][0]['password_field']['#attributes']['style'][] = 'display: none;';
+		$form['field_dummy_password']['und'][0]['password_field']['#title'] = '';
+		//$form['field_representative_title']['#access'] = FALSE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		//dpm($form);
+		
+		
+		
+		return $form;
+
+}
+
+//Hide form fields for Integration
+function userFormDeliveries($form, &$form_state) {
+	//Hide picture upload
+		$form['picture']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['account']['current_pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		//$form['field_representative_title']['#access'] = FALSE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		//dpm($form);
+		
+		
+		
+		return $form;
+
+}
+
+//Hide form fields for Integration
+function userFormSetPassword($form, &$form_state) {
+	//Hide picture upload
+		$form['picture']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		
+		$date = date('Y')+1;
+		global $user;
+		$userName = $user->name;
+		$form['account']['pass']['#prefix'] = t('<h3>Tak for din indmelding i Mensa.</h3><br><p>Dit medlemskab er oprettet og løber indtil d. 1. Apr. ' . $date . '</p><p>Du er blevet tildelt følgende medlemsnummer som du fremover skal benytte som "brugernavn" når du logger ind på Mensa.dk.</p><br><h4><b>' . $userName . '</b></h4><br><p>Angiv en adgangskode herunder, som du ønsker at benytte, når du fremover skal logge ind på hjemmesiden.<br><br><br></p>');
+		if (variable_get('nocurrent_pass_disabled', TRUE)) {
+		    // searches the #validate array for the current_pass validation function, and removes it
+		    $key = array_search('user_validate_current_pass', $form['#validate']);
+		    if ($key !== FALSE) {
+		      unset($form['#validate'][$key]);
+		    }
+		    // hide the current password fields
+		    $form['account']['current_pass_required_value']['#access'] = FALSE;
+		    $form['account']['current_pass']['#access'] = FALSE;
+		  }
+		
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		//dpm($form);
+		
+		
+		
+		return $form;
+
+}
+
+//Hide form fields for drupal standart edit page, in this case only used for resetting password
+function userFormForgotPassword($form, &$form_state) {
+		
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['account']['name']['#access'] = FALSE;
+		$form['account']['mail']['#access'] = FALSE;
+		$form['timezone']['#access'] = FALSE;
+		$form['locale']['#access'] = FALSE;
+		
+		//Hide adress and profile info to show it on user/*/edit/profile
+		$form['picture']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_last_name']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = FALSE;
+		$form['field_adresse_']['#access'] = FALSE;
+		$form['field_zip_code']['#access'] = FALSE;
+		$form['field_city']['#access'] = FALSE;
+		$form['field_phone']['#access'] = FALSE;
+		//$form['field_birthdate']['#access'] = FALSE;
+		$form['field_sex']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = FALSE;
+		$form['field_mail_alias']['#access'] = FALSE;
+		$form['field_local_mail']['#access'] = FALSE;
+		$form['field_personal_webpage']['#access'] = FALSE;
+		$form['field_skype_id']['#access'] = FALSE;
+		$form['field_old_user_id']['#access'] = FALSE;
+		$form['field_locsec_description']['#access'] = FALSE;
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		//$form['field_pbs_membership_payment']['#access'] = FALSE;
+		$form['field_member_comments']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		//$form['field_representative_title']['#access'] = FALSE;
+		//$form['field_show_birthdate']['#access'] = FALSE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				   
+			}
+		}
+		
+		return $form;
+		
+		//dpm($form);
+}
+
+
+function userAdminUserEdit($form, &$form_state) {
+	
+	if (variable_get('nocurrent_pass_disabled', TRUE)) {
+		    // searches the #validate array for the current_pass validation function, and removes it
+		    $key = array_search('user_validate_current_pass', $form['#validate']);
+		    if ($key !== FALSE) {
+		      unset($form['#validate'][$key]);
+		    }
+		    // hide the current password fields
+		    $form['account']['current_pass_required_value']['#access'] = FALSE;
+		    $form['account']['current_pass']['#access'] = FALSE;
+		  }
+		  
+	$form['field_dummy_password']['#access'] = FALSE;
+		  
+	if (isset($form['#fieldgroups']) && isset($form['#group_children'])) {
+        	foreach ($form['#group_children'] as $field => $group) {
+				if ($group == 'group_personal_mail_alias') {
+				
+				}else{
+			   
+				   $form[$field]['#access'] = FALSE;
+				   $form[$field]['#disabled'] = TRUE;
+				}
+			}
+		}
+		
+		
+		
+		$uid = arg(1);
+		$result = db_query('SELECT a.entity_id, a.field_representative_title_tid, b.entity_id, b.field_representative_mail_alias_value, c.entity_id, c.field_tillad_at_brugere_selv_kan_value
+		FROM {field_data_field_representative_title} a
+		LEFT JOIN {field_data_field_representative_mail_alias} b on b.entity_id = a.field_representative_title_tid
+		LEFT JOIN {field_data_field_tillad_at_brugere_selv_kan} c on c.entity_id = a.field_representative_title_tid
+		WHERE a.entity_id = :uid', array(':uid' => $uid));
+	
+		foreach ($result as $record) {
+			
+			$mail = $record->field_representative_mail_alias_value;
+			$disabled = $record->field_tillad_at_brugere_selv_kan_value;
+			$tid = $record->entity_id;
+			
+			
+				if (isset($form['#fieldgroups']['group_' . $tid]) && isset($form['#group_children'])) {
+		        	foreach ($form['#group_children'] as $field => $group) {
+						if ($group == 'group_' . $tid) {
+					   
+						   $form[$field]['#access'] = TRUE;
+						   //$form[$field]['#disabled'] = FALSE;
+						   if ( $disabled == 0){
+						   		$form['mail_alias_' . $tid]['und']['0']['value']['#attributes']['disabled'] = TRUE;
+						   		
+						   		
+						   		if ( $form['mail_alias_' . $tid]['und']['0']['value']['#value'] == '' ){
+						   		
+						   			$form['mail_alias_' . $tid]['und']['0']['value']['#value'] = $mail;
+						   			
+						   			
+						   		}
+						   }elseif( $disabled == 1 && $mail != ''){
+							   $form['mail_alias_' . $tid]['und']['0']['#suffix'] = '<div class="mail-suffix"><input type="text" value="' . $mail . '" disabled="disabled" class="text-full form-control form-text group-alias-field"></input></div>';
+						   }
+						   
+						   
+						   
+						   
+						}
+						   
+					}
+				}
+			
+			
+			
+			 
+			
+			
+			
+		}
+		
+		return $form;
+}
+
+
+function mensa_user_view_edit_form_user_register_form_alter(&$form, &$form_state) {
+	
+	
+	
+	
+	if (arg(3) == 'guest'){
+	
+		//Count current guest users to create user name
+		$result = db_query('SELECT name
+			FROM {users}
+			WHERE SUBSTRING(name,1,2) = :arg', array(':arg' => 'G-'));
+		
+		$val = 0;
+		foreach ($result as $record) {
+		         $val += 1;
+		}
+		
+		$val += 1;
+		
+		//Calculate guest member expiration date
+		
+		if ( date('m') <= '3' ){
+			$expDate = '04/01/' . date('Y');
+		}else{
+			$expDate = '04/01/' . (date('Y') + 1);
+		}
+		
+		//print $expDate;
+		
+		
+		
+		$form['account']['name']['#default_value'] = 'G-' . $val;
+		$form['account']['name']['#attributes'] = array('readonly' => 'readonly');
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_membership_expiration_date']['#access'] = TRUE;
+		$form['field_membership_expiration_date']['und'][0]['#default_value']['value'] = $expDate;
+		$form['field_first_name']['#access'] = TRUE;
+		$form['field_last_name']['#access'] = TRUE;
+		$form['field_sex']['#access'] = TRUE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#required'] = FALSE;
+		$form['account']['notify']['#default_value'] = TRUE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = TRUE;
+		$form['field_adresse_']['#access'] = TRUE;
+		$form['field_zip_code']['#access'] = TRUE;
+		$form['field_city']['#access'] = TRUE;
+		$form['field_phone']['#access'] = TRUE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		//$stack = array([10] => Guest Member);
+		 
+		$form['account']['roles']['#access'] = FALSE;
+		
+		//dpm($form);
+		//print_r($form);
+		
+	}
+	
+	if (arg(3) == 'potential-member'){
+	
+		
+		
+		 
+		
+		$form['account']['status']['#access'] = FALSE;
+		$form['account']['notify']['#value'] = 0;
+		$form['account']['notify']['#access'] = FALSE;
+		$form['field_membership_expiration_date']['und'][0]['#default_value']['value'] = '';
+		$form['field_membership_expiration_date']['#access'] = FALSE;
+		$form['field_first_name']['#access'] = TRUE;
+		$form['field_last_name']['#access'] = TRUE;
+		$form['field_sex']['#access'] = TRUE;
+		$form['field_birthdate']['#access'] = TRUE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#required'] = FALSE;
+		$form['account']['notify']['#default_value'] = TRUE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = TRUE;
+		$form['field_adresse_']['#access'] = TRUE;
+		$form['field_zip_code']['#access'] = TRUE;
+		$form['field_city']['#access'] = TRUE;
+		$form['field_phone']['#access'] = TRUE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		//$stack = array([10] => Guest Member);
+		
+		$form['account']['roles']['#access'] = FALSE;
+		
+		//dpm($form);
+		//print_r($form);
+		
+	}
+	
+	if (arg(3) == 'member'){
+	
+		
+		$result = db_query('SELECT name
+			FROM {users}
+			WHERE SUBSTRING(name,1,4) = :arg', array(':arg' => date('Y')));
+		
+		$val = 0;
+		foreach ($result as $record) {
+		         $val += 1;
+		}
+		
+		$val = $val+1;
+		if (strlen($val) == 1){
+		   $val = '00'.$val;
+		}
+		
+		if (strlen($val) == 2){
+		   $val = '0'.$val;
+		}
+		
+		$val = date('Y') . $val;
+		
+		 
+		$form['account']['name']['#default_value'] = $val;
+		$form['account']['name']['#attributes'] = array('readonly' => 'readonly');
+		$form['account']['status']['#access'] = FALSE;
+		$form['field_membership_expiration_date']['und'][0]['#default_value']['value'] = '04/01/' . (date('Y') + 1);
+		$form['field_membership_expiration_date']['#access'] = TRUE;
+		$form['field_first_name']['#access'] = TRUE;
+		$form['field_last_name']['#access'] = TRUE;
+		$form['field_sex']['#access'] = TRUE;
+		$form['field_birthdate']['#access'] = TRUE;
+		$form['field_birthdate']['und'][0]['#default_value']['value'] = '';
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#access'] = FALSE;
+		$form['account']['pass']['#required'] = FALSE;
+		$form['account']['notify']['#default_value'] = TRUE;
+		$form['field_locsec_area']['#access'] = FALSE;
+		$form['field_notes']['#access'] = FALSE;
+		$form['field_facebook']['#access'] = FALSE;
+		//$form['field_deliveries']['#access'] = FALSE;
+		$form['field_mensa_org_password']['#access'] = FALSE;
+		$form['field_dummy_password']['#access'] = FALSE;
+		$form['field_adresse']['#access'] = TRUE;
+		$form['field_adresse_']['#access'] = TRUE;
+		$form['field_zip_code']['#access'] = TRUE;
+		$form['field_city']['#access'] = TRUE;
+		$form['field_phone']['#access'] = TRUE;
+		//$form['account']['roleassign_roles']['#access'] = FALSE;
+		
+		//$stack = array([10] => Guest Member);
+		
+		$form['account']['roles']['#access'] = FALSE;
+		
+		//dpm($form);
+		//print_r($form);
+		
+	}
+		
+	
+	
+
+}
+
+//Set the theme for MD sllider pages, needed for Editor role
+
+function mensa_user_view_edit_custom_theme() {
+  if (arg(2) == 'md-slider') {
+    return 'shiny';
+  }
+}
+?>

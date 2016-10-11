@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Mensa - Panel pages feature.
+ */
+
+include_once 'mensa_panel_pages.features.inc';
